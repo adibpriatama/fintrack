@@ -1,8 +1,13 @@
+import os
 import logging
 import sqlite3
 from datetime import datetime
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, ConversationHandler
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Enable logging
 logging.basicConfig(
@@ -12,11 +17,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Replace 'YOUR_BOT_TOKEN' with your actual bot token from BotFather
-# Replace 'YOUR_BOT_TOKEN' with your actual bot token from BotFather
-BOT_TOKEN = "6824493542:AAFKzu1YzORsmjffc3Py6pwg8W0MbtOS9uQ"
+BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 # Database setup
-DB_NAME = "C:\\Users\\adibpriatama\\Projects\\fintrack\\dbexpenses.db"
+DB_NAME = os.getenv('DB_NAME', 'expenses.db')
 
 # Conversation states
 CONFIRM_CLEAR = 1
