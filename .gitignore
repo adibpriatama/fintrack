@@ -3,3 +3,6 @@ venv/
 .vscode/
 *.db
 .env
+__pycache__/
+*.pyc
+handlers/__pycache__/
