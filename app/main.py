@@ -2,7 +2,7 @@
 import os
 from dotenv import load_dotenv
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from app.handlers import start, echo
+from app.handlers import start, help
 
 
 # Load variables from .env file
@@ -18,7 +18,6 @@ application = Application.builder().token(TOKEN).build()
 
 # Register handlers - this is clean and clear
 application.add_handler(CommandHandler("start", start.start_command))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo.echo_command))
-
+application.add_handler(CommandHandler("help", help.help_command))
 # Start the bot
 application.run_polling()
