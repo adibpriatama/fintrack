@@ -1,6 +1,7 @@
 import re
 from telegram import Update
 from telegram.ext import ContextTypes
+from tabulate import tabulate
 from .database import DatabaseManager
 from ..config import CURRENCY_SYMBOL, DEFAULT_TRANSACTION_TYPE
 
@@ -142,6 +143,9 @@ class MessageHandler:
             return True
         elif message_lower.startswith('/edit'):
             await self._edit_transaction(update, context, chat_id)
+            return True
+        elif message_lower.startswith('/search'):
+            await self._search_transactions(update, context, chat_id)
             return True
         
         return False
@@ -488,3 +492,94 @@ class MessageHandler:
             response += f"   ⏰ {trans['created_at'].strftime('%d/%m/%Y %H:%M')}\n\n"
         
         await update.message.reply_text(response)
+
+    async def _search_transactions(self, update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+        """Search transactions by category or description"""
+        message_text = update.message.text.strip()
+        parts = message_text.split(maxsplit=1)
+        
+        if len(parts) < 2:
+            await update.message.reply_text(
+                "❌ Format pencarian tidak valid.\n\n"
+                "**Cara penggunaan:**\n"
+                "`/search <kata_kunci>`\n\n"
+                "**Contoh:**\n"
+                "`/search makan` - Cari 'makan' di kategori atau deskripsi\n"
+                "`/search gaji` - Cari 'gaji'\n"
+                "`/search siang` - Cari 'siang' di deskripsi\n\n"
+                "Pencarian bersifat case-insensitive dan partial match."
+            )
+            return
+        
+        search_term = parts[1].strip()
+        
+        if len(search_term) < 2:
+            await update.message.reply_text("❌ Kata kunci pencarian minimal 2 karakter")
+            return
+        
+        try:
+            db = DatabaseManager(chat_id)
+            transactions = db.search_transactions(search_term, limit=15)
+            
+            if not transactions:
+                await update.message.reply_text(
+                    f"🔍 Tidak ditemukan transaksi dengan kata kunci: '{search_term}'"
+                )
+                return
+            
+            # Create compact table display
+            response = self._format_search_results(transactions, search_term)
+            await update.message.reply_text(response, parse_mode='Markdown')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error saat pencarian: {str(e)}")
+
+    def _format_search_results(self, transactions, search_term):
+        """Format search results as a properly aligned table using tabulate"""
+        response = f"🔍 **Hasil Pencarian: '{search_term}'**\n\n"
+        
+        # Prepare data for tabulate
+        table_data = []
+        total_amount = 0
+        
+        for trans in transactions:
+            # Prepare row data
+            trans_id = trans['id']
+            trans_type = "💰" if trans['type'] == 'income' else "💸"
+            amount = f"{CURRENCY_SYMBOL} {trans['amount']:,}"
+            category = trans['category'] or "-"
+            description = trans['description'] or "-"
+            
+            # Truncate long descriptions
+            if len(description) > 25:
+                description = description[:24] + "…"
+            
+            table_data.append([
+                trans_id,
+                trans_type,
+                amount,
+                category,
+                description
+            ])
+            
+            # Calculate total
+            if trans['type'] == 'income':
+                total_amount += trans['amount']
+            else:
+                total_amount -= trans['amount']
+        
+        # Create table with tabulate
+        headers = ["ID", "Tipe", "Jumlah", "Kategori", "Deskripsi"]
+        table = tabulate(
+            table_data, 
+            headers=headers, 
+            tablefmt="simple",  # or "grid", "plain", "simple"
+            stralign="left",
+            numalign="left"
+        )
+        
+        response += f"```\n{table}\n```"
+        response += f"\n📊 **Total ditemukan: {len(transactions)} transaksi**"
+        response += f"\n💳 **Pengaruh saldo: {CURRENCY_SYMBOL} {total_amount:+,}**"
+        
+        return response

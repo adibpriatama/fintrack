@@ -160,3 +160,24 @@ class DatabaseManager:
             return result
         finally:
             session.close()
+            
+    def search_transactions(self, search_term, limit=20):
+        """Search transactions by category or description"""
+        session = self.Session()
+        
+        try:
+            # Use ILIKE for case-insensitive search and % for partial matches
+            search_pattern = f'%{search_term}%'
+            
+            transactions = session.query(Transaction)\
+                .filter(
+                    (Transaction.category.ilike(search_pattern)) | 
+                    (Transaction.description.ilike(search_pattern))
+                )\
+                .order_by(Transaction.created_at.desc())\
+                .limit(limit)\
+                .all()
+            
+            return [trans.to_dict() for trans in transactions]
+        finally:
+            session.close()
