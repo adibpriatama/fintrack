@@ -137,6 +137,9 @@ class MessageHandler:
         elif message_lower.startswith('/category'):
             await self._show_category(update, context, chat_id)
             return True
+        elif message_lower.startswith('/edit'):
+            await self._edit_transaction(update, context, chat_id)
+            return True
         
         return False
     
@@ -216,6 +219,105 @@ class MessageHandler:
         
         await update.message.reply_text(response)
     
+    async def _edit_transaction(self, update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+        """Edit an existing transaction"""
+        message_text = update.message.text.strip()
+        parts = message_text.split()
+        
+        if len(parts) < 3:
+            await update.message.reply_text(
+                "❌ Format edit tidak valid.\n\n"
+                "**Cara penggunaan:**\n"
+                "`/edit <id> <field> <value>`\n\n"
+                "**Contoh:**\n"
+                "`/edit 1 amount 75000`\n"
+                "`/edit 1 category makanan`\n"
+                "`/edit 1 description lunch meeting`\n"
+                "`/edit 1 type income`\n\n"
+                "**Field yang tersedia:**\n"
+                "• `amount` - Jumlah transaksi\n"
+                "• `category` - Kategori\n"
+                "• `description` - Deskripsi\n"
+                "• `type` - Jenis (income/expense)"
+            )
+            return
+        
+        try:
+            transaction_id = int(parts[1])
+            field = parts[2].lower()
+            value = ' '.join(parts[3:]) if len(parts) > 3 else ""
+            
+            db = DatabaseManager(chat_id)
+            
+            # Get current transaction for validation
+            current_transaction = db.get_transaction_by_id(transaction_id)
+            if not current_transaction:
+                await update.message.reply_text(f"❌ Transaksi dengan ID {transaction_id} tidak ditemukan")
+                return
+            
+            update_data = {}
+            
+            if field == 'amount':
+                try:
+                    amount = self._parse_amount(value)
+                    if amount <= 0:
+                        await update.message.reply_text("❌ Jumlah harus positif")
+                        return
+                    update_data['amount'] = amount
+                except ValueError:
+                    await update.message.reply_text(f"❌ Format jumlah tidak valid: {value}")
+                    return
+                    
+            elif field == 'category':
+                if not value:
+                    await update.message.reply_text("❌ Kategori tidak boleh kosong")
+                    return
+                update_data['category'] = value.lower()
+                
+            elif field == 'description':
+                update_data['description'] = value  # Description can be empty
+                
+            elif field == 'type':
+                if value.lower() not in ['income', 'expense']:
+                    await update.message.reply_text("❌ Jenis harus 'income' atau 'expense'")
+                    return
+                update_data['transaction_type'] = value.lower()
+                
+            else:
+                await update.message.reply_text(
+                    f"❌ Field '{field}' tidak valid. Gunakan: amount, category, description, atau type"
+                )
+                return
+            
+            # Update the transaction
+            success = db.update_transaction(
+                transaction_id=transaction_id,
+                **update_data
+            )
+            
+            if success:
+                # Get updated transaction and balance
+                updated_transaction = db.get_transaction_by_id(transaction_id)
+                balance = db.get_balance()
+                
+                response = f"✅ Transaksi {transaction_id} berhasil diupdate!\n\n"
+                response += f"📊 **Detail Transaksi:**\n"
+                response += f"🏷️ Kategori: {updated_transaction['category'] or 'Tidak ada'}\n"
+                response += f"📝 Deskripsi: {updated_transaction['description'] or 'Tidak ada'}\n"
+                response += f"💵 Jumlah: {CURRENCY_SYMBOL} {updated_transaction['amount']:,}\n"
+                response += f"📋 Jenis: {'Pemasukan' if updated_transaction['type'] == 'income' else 'Pengeluaran'}\n"
+                response += f"⏰ Tanggal: {updated_transaction['created_at'].strftime('%d/%m/%Y %H:%M')}\n\n"
+                response += f"💳 **Saldo saat ini:** {CURRENCY_SYMBOL} {balance:+,}"
+                
+                await update.message.reply_text(response)
+            else:
+                await update.message.reply_text("❌ Gagal mengupdate transaksi")
+                
+        except ValueError:
+            await update.message.reply_text("❌ ID transaksi harus angka")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error mengedit transaksi: {str(e)}")
+
     def _parse_amount(self, amount_str):
         """Parse amount string with Indonesian abbreviations"""
         amount_str_clean = amount_str.lower().strip()

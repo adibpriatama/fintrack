@@ -25,6 +25,7 @@ class FinTrackBot:
         self.application.add_handler(CommandHandler("summary", self._summary_command))
         self.application.add_handler(CommandHandler("delete", self._delete_command))
         self.application.add_handler(CommandHandler("category", self._category_command))
+        self.application.add_handler(CommandHandler("edit", self._edit_command))
         
         # Add message handler for all text messages (should be after command handlers)
         self.application.add_handler(
@@ -72,21 +73,33 @@ Saldo akan otomatis terhitung! 💰
 📖 **Bantuan FinTrack Bot**
 
 **Format Transaksi:**
-``[kategori] [deskripsi] [+][jumlah]``
+``[kategori] [deskripsi] [tanda][jumlah]``
 
 **Perintah yang tersedia:**
 - `/start` - Memulai bot
 - `/help` - Menampilkan bantuan ini
 - `/balance` - Cek saldo saat ini
 - `/history` - Lihat 5 transaksi terakhir
+- `/edit <id> <field> <value>` - Edit transaksi
 - `/delete <id>` - Hapus transaksi
 - `/summary` - Ringkasan per kategori
 - `/category <nama>` - Lihat transaksi per kategori
+
+**Contoh Transaksi:**
+- `makan siang 50k`
+- `gaji bulanan +2jt`
+- `transport gojek 15k`
 
 **Catatan:**
 - Gunakan **+** untuk pemasukan
 - Tanpa tanda atau **-** untuk pengeluaran
 - Mata uang: Indonesian Rupiah (IDR)
+
+**Edit Transaksi:**
+- `/edit 1 amount 75000` - Ubah jumlah
+- `/edit 1 category makanan` - Ubah kategori
+- `/edit 1 description lunch` - Ubah deskripsi
+- `/edit 1 type income` - Ubah jenis
         """
         await update.message.reply_text(help_text)
     
@@ -119,6 +132,12 @@ Saldo akan otomatis terhitung! 💰
         chat_id = update.message.chat_id
         handler = FinTrackMessageHandler()
         await handler._show_category(update, context, chat_id)
+    
+    async def _edit_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /edit command"""
+        chat_id = update.message.chat_id
+        handler = FinTrackMessageHandler()
+        await handler._edit_transaction(update, context, chat_id)
     
     def run(self):
         """Start the bot"""

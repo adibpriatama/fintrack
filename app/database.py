@@ -89,6 +89,32 @@ class DatabaseManager:
         finally:
             session.close()
     
+    def update_transaction(self, transaction_id, amount=None, transaction_type=None, category=None, description=None):
+        """Update an existing transaction"""
+        session = self.Session()
+        
+        try:
+            transaction = session.query(Transaction).filter(Transaction.id == transaction_id).first()
+            if not transaction:
+                return False
+            
+            if amount is not None:
+                transaction.amount = amount
+            if transaction_type is not None:
+                transaction.type = transaction_type
+            if category is not None:
+                transaction.category = category
+            if description is not None:
+                transaction.description = description
+            
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
+
     def get_transaction_by_id(self, transaction_id):
         """Get a specific transaction by ID"""
         session = self.Session()
