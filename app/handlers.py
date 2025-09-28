@@ -8,10 +8,10 @@ class MessageHandler:
     def __init__(self):
         # New pattern: [category] [description] [sign][amount]
         # Examples: "makan lunch +50k" or "gaji bulanan +2jt"
-        self.transaction_pattern = re.compile(r'^(\S+)\s+(.+?)\s+([+-]?)(\d+(?:[.,]\d+)?\s*(?:k|rb|jt|m)?)$', re.IGNORECASE)
+        self.transaction_pattern = re.compile(r'^(\S+)\s+(.+?)\s+([+-]?)(\d+(?:[.,]\d+)*(?:\s*(?:k|rb|jt|m))?)$', re.IGNORECASE)
         
         # Fallback pattern for when description is optional
-        self.fallback_pattern = re.compile(r'^(\S+)\s+([+-]?)(\d+(?:[.,]\d+)?\s*(?:k|rb|jt|m)?)$', re.IGNORECASE)
+        self.fallback_pattern = re.compile(r'^(\S+)\s+([+-]?)(\d+(?:[.,]\d+)*(?:\s*(?:k|rb|jt|m))?)$', re.IGNORECASE)
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Process every message in the group"""
@@ -102,7 +102,8 @@ class MessageHandler:
                 'type': transaction_type,
                 'sign': sign
             }
-        except ValueError:
+        except ValueError as e:
+            print(f"DEBUG: Error parsing amount '{amount_str}': {e}")
             return None
     
     async def _process_single_transaction(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str, chat_id: int):
@@ -114,8 +115,10 @@ class MessageHandler:
         # Try to parse as transaction
         transaction_data = self._parse_transaction_line(message_text)
         if transaction_data:
+            print(f"DEBUG: Parsed transaction - Category: {transaction_data['category']}, Amount: {transaction_data['amount']}")
             await self._save_single_transaction(update, context, chat_id, transaction_data)
         else:
+            print(f"DEBUG: Failed to parse: '{message_text}'")
             await update.message.reply_text("❌ Format transaksi tidak dikenali. Gunakan: [kategori] [deskripsi] [+-][jumlah]")
     
     async def _process_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str, chat_id: int):
@@ -321,18 +324,47 @@ class MessageHandler:
     def _parse_amount(self, amount_str):
         """Parse amount string with Indonesian abbreviations"""
         amount_str_clean = amount_str.lower().strip()
-        amount_str_clean = amount_str_clean.replace(' ', '').replace('.', '').replace(',', '.')
         
+        # Remove spaces for better parsing
+        amount_str_clean = amount_str_clean.replace(' ', '')
+        
+        # Handle different suffixes and their multipliers
         multiplier = 1
-        if amount_str_clean.endswith('k') or amount_str_clean.endswith('rb'):
-            multiplier = 1000
-            amount_str_clean = amount_str_clean[:-1]
-        elif amount_str_clean.endswith('jt') or amount_str_clean.endswith('m'):
-            multiplier = 1000000
-            amount_str_clean = amount_str_clean[:-2] if amount_str_clean.endswith('jt') else amount_str_clean[:-1]
+        suffix = None
         
-        amount = float(amount_str_clean) * multiplier
-        return int(amount)
+        # Check for suffixes in order (longer first to avoid partial matches)
+        if amount_str_clean.endswith('jt'):
+            multiplier = 1000000
+            suffix = 'jt'
+        elif amount_str_clean.endswith('rb'):
+            multiplier = 1000
+            suffix = 'rb'
+        elif amount_str_clean.endswith('k'):
+            multiplier = 1000
+            suffix = 'k'
+        elif amount_str_clean.endswith('m'):
+            multiplier = 1000000
+            suffix = 'm'
+        
+        # Remove the suffix if found
+        if suffix:
+            amount_str_clean = amount_str_clean[:-len(suffix)]
+        
+        # Replace comma with dot for decimal parsing, but remove dots used as thousand separators
+        # First, check if it's a decimal number with comma
+        if ',' in amount_str_clean and '.' not in amount_str_clean:
+            # Comma is decimal separator (European format)
+            amount_str_clean = amount_str_clean.replace(',', '.')
+        else:
+            # Comma and dot are thousand separators, remove them
+            amount_str_clean = amount_str_clean.replace('.', '').replace(',', '')
+        
+        try:
+            amount = float(amount_str_clean) * multiplier
+            # Convert to integer since IDR doesn't use decimals
+            return int(amount)
+        except ValueError as e:
+            raise ValueError(f"Tidak bisa parse jumlah: '{amount_str}' (cleaned: '{amount_str_clean}')")
     
     async def _show_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
         """Show current balance in IDR"""
