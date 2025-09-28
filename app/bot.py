@@ -93,35 +93,30 @@ Saldo akan otomatis terhitung! 💰
     async def _balance_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /balance command"""
         chat_id = update.message.chat_id
-        from .handlers import MessageHandler as FinTrackMessageHandler
         handler = FinTrackMessageHandler()
         await handler._show_balance(update, context, chat_id)
     
     async def _history_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /history command"""
         chat_id = update.message.chat_id
-        from .handlers import MessageHandler as FinTrackMessageHandler
         handler = FinTrackMessageHandler()
         await handler._show_history(update, context, chat_id)
     
     async def _summary_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /summary command"""
         chat_id = update.message.chat_id
-        from .handlers import MessageHandler as FinTrackMessageHandler
         handler = FinTrackMessageHandler()
         await handler._show_summary(update, context, chat_id)
     
     async def _delete_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /delete command"""
         chat_id = update.message.chat_id
-        from .handlers import MessageHandler as FinTrackMessageHandler
         handler = FinTrackMessageHandler()
         await handler._delete_transaction(update, context, chat_id)
     
     async def _category_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /category command"""
         chat_id = update.message.chat_id
-        from .handlers import MessageHandler as FinTrackMessageHandler
         handler = FinTrackMessageHandler()
         await handler._show_category(update, context, chat_id)
     
