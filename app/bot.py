@@ -27,6 +27,7 @@ class FinTrackBot:
         self.application.add_handler(CommandHandler("category", self._category_command))
         self.application.add_handler(CommandHandler("edit", self._edit_command))
         self.application.add_handler(CommandHandler("search", self._search_command))
+        self.application.add_handler(CommandHandler("chart", self._chart_command))
 
         
         # Add message handler for all text messages (should be after command handlers)
@@ -153,6 +154,11 @@ Saldo akan otomatis terhitung! 💰
         """Handle /search command"""
         chat_id = update.message.chat_id
         await self.message_handler._search_transactions(update, context, chat_id)
+    
+    async def _chart_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /search command"""
+        chat_id = update.message.chat_id
+        await self.message_handler._show_chart(update, context, chat_id)
     
     def run(self):
         """Start the bot"""

@@ -2,6 +2,9 @@ import re
 from telegram import Update
 from telegram.ext import ContextTypes
 from tabulate import tabulate
+import plotly.graph_objects as go
+from datetime import datetime, timedelta
+import os
 from .database import DatabaseManager
 from ..config import CURRENCY_SYMBOL, DEFAULT_TRANSACTION_TYPE
 
@@ -146,6 +149,9 @@ class MessageHandler:
             return True
         elif message_lower.startswith('/search'):
             await self._search_transactions(update, context, chat_id)
+            return True
+        elif message_lower in ['/chart', 'chart']:
+            await self._show_chart(update, context, chat_id)
             return True
         
         return False
@@ -583,3 +589,124 @@ class MessageHandler:
         response += f"\n💳 **Pengaruh saldo: {CURRENCY_SYMBOL} {total_amount:+,}**"
         
         return response
+    
+    # Add this method to your MessageHandler class
+    async def _show_chart(self, update: Update, context: ContextTypes.DEFAULT_TYPE, chat_id: int):
+        """Simple chart command - just show expenses for current month"""
+        try:
+            await update.message.reply_text("🔄 Membuat grafik sederhana...")
+            
+            # Get current month expenses
+            db = DatabaseManager(chat_id)
+            all_transactions = db.get_transactions(limit=1000)
+            
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            
+            expenses = []
+            total_amount = 0
+            for trans in all_transactions:
+                if trans['type'] != 'expense':
+                    continue
+                    
+                trans_date = trans['created_at']
+                if isinstance(trans_date, str):
+                    # Parse the date string
+                    trans_date = datetime.strptime(trans_date, '%Y-%m-%d %H:%M:%S')
+                
+                if trans_date >= thirty_days_ago: #trans_date.month == current_month and trans_date.year == current_year:
+                    expenses.append(trans)
+                    total_amount += trans['amount']
+            
+            if not expenses:
+                await update.message.reply_text("❌ Tidak ada data pengeluaran dalam 30 hari terakhir")
+                return
+            
+            # Simple data grouping
+            category_totals = {}
+            for exp in expenses:
+                category = exp['category'] or 'Lainnya'
+                category_totals[category] = category_totals.get(category, 0) + exp['amount']
+            
+            # Create pie chart with amount labels
+            labels = []
+            values = []
+            text_labels = []
+            
+            for category, amount in category_totals.items():
+                labels.append(category)
+                values.append(amount)
+                percentage = (amount / total_amount) * 100
+                formatted_amount = self._format_amount_idr(amount)
+                text_labels.append(f"{percentage:.1f}%\n({formatted_amount})")
+            
+            fig = go.Figure(data=[go.Pie(
+                labels=labels, 
+                values=values,
+                text=text_labels,
+                textinfo='text',
+                textposition='inside',
+                hole=0.4,  # Makes it a donut chart
+                marker=dict(colors=['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7'])
+            )])
+        
+            # Format total amount for title
+            total_formatted = self._format_amount_idr(total_amount)
+            
+            fig.update_layout(
+                title={
+                    'text': f'📊 Pengeluaran 30 Hari Terakhir<br>Total: Rp {total_amount:,} ({total_formatted})',
+                    'x': 0.5,
+                    'xanchor': 'center',
+                    'font': {'size': 16}
+                },
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="top", 
+                    y=1,
+                    xanchor="left",
+                    x=1.1
+                ),
+                width=800,
+                height=600,
+                margin=dict(t=100, b=50, l=50, r=150)
+            )
+            
+            # Save and send
+            os.makedirs('temp_charts', exist_ok=True)
+            filename = f"temp_charts/chart_{chat_id}.png"
+            fig.write_image(filename)
+            
+            with open(filename, 'rb') as photo:
+                await update.message.reply_photo(photo=photo, 
+                      caption=f"📊 Pengeluaran {thirty_days_ago.strftime('%d %b %Y')} - sekarang\nTotal: Rp {total_amount:,} ({total_formatted})")
+            
+            # Clean up
+            os.remove(filename)
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error membuat grafik: {str(e)}")
+
+    def _format_amount_idr(self, amount):
+        """Format amount with Indonesian abbreviations"""
+        if amount >= 1000000:
+            return f"{amount/1000000:.1f}jt" if amount % 1000000 != 0 else f"{amount//1000000}jt"
+        elif amount >= 1000:
+            return f"{amount/1000:.0f}rb" if amount % 1000 == 0 else f"{amount/1000:.1f}rb"
+        else:
+            return f"{amount:.0f}"
+    
+    def _format_amount_idr(self, amount):
+        """Format amount with Indonesian abbreviations"""
+        if amount >= 1000000:
+            if amount % 1000000 == 0:
+                return f"{amount//1000000}jt"
+            else:
+                return f"{amount/1000000:.1f}jt"
+        elif amount >= 1000:
+            if amount % 1000 == 0:
+                return f"{amount//1000}rb"
+            else:
+                return f"{amount/1000:.1f}rb"
+        else:
+            return f"{amount:.0f}"
