@@ -6,7 +6,7 @@ from .app.bot import FinTrackBot
 from .config import BOT_TOKEN, DB_DIR, CURRENCY, CURRENCY_SYMBOL
 
 __version__ = "1.0.0"
-__author__ = "DeepSeek + Adib as prompter :("
+__author__ = "Adib and DeepSeek"
 __all__ = ['FinTrackBot', 'main']
 
 def main():

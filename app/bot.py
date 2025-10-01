@@ -66,7 +66,7 @@ belanja 300k
 - `/search <kata>` - Cari transaksi
 - `/edit <id> <field> <value>` - Edit transaksi
 - `/category <nama>` - Lihat transaksi per kategori
-
+- `/chart` - Lihat grafik pengeluaran 30 hari terakhir
 
 Saldo akan otomatis terhitung! 💰
         """
@@ -90,6 +90,8 @@ Saldo akan otomatis terhitung! 💰
 - `/delete <id>` - Hapus transaksi
 - `/summary` - Ringkasan per kategori
 - `/category <nama>` - Lihat transaksi per kategori
+- `/chart` - Lihat grafik pengeluaran 30 hari terakhir
+
 
 **Contoh Transaksi:**
 - `makan siang 50k`
